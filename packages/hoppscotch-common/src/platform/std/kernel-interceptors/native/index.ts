@@ -83,12 +83,23 @@ export class NativeKernelInterceptorService
         .join(";")
     }
 
-    console.info(
-      "[platform/std/kernel-interceptor/native/index]: effectiveRequest",
-      effectiveRequest
-    )
+    const existingUserAgentHeader = Object.keys(
+      effectiveRequest.headers || {}
+    ).find((header) => header.toLowerCase() === "user-agent")
 
-    const relayExecution = Relay.execute(effectiveRequest)
+    // A temporary workaround to add a User-Agent header to the request
+    // This will be removed once the kernel/relay is updated to add User-Agent header by default
+    const effectiveRequestWithUserAgent = {
+      ...effectiveRequest,
+      headers: {
+        ...effectiveRequest.headers,
+        "User-Agent": existingUserAgentHeader
+          ? effectiveRequest.headers[existingUserAgentHeader]
+          : "HoppscotchKernel/0.1.0",
+      },
+    }
+
+    const relayExecution = Relay.execute(effectiveRequestWithUserAgent)
 
     const response = pipe(relayExecution.response, (promise) =>
       promise.then((either) =>

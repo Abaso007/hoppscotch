@@ -4,7 +4,7 @@ import * as E from "fp-ts/Either"
 import axios from "axios"
 import superjson from "superjson"
 import { Store } from "~/kernel/store"
-import type { RelayRequest, RelayResponse } from "@hoppscotch/kernel"
+import type { PluginRequest, PluginResponse } from "@hoppscotch/kernel"
 import { x25519 } from "@noble/curves/ed25519"
 import { base16 } from "@scure/base"
 import {
@@ -50,6 +50,13 @@ export class KernelInterceptorAgentStore extends Service {
   public isAgentRunning = ref(false)
   public authKey = ref<string | null>(null)
   private sharedSecretB16 = ref<string | null>(null)
+
+  // AgentSubtitle component shared variables for unified display across multiple components
+  public hasInitiatedRegistration = ref(false)
+  public maskedAuthKey = ref("")
+  public hasCheckedAgent = ref(false)
+  public registrationOTP = ref(this.authKey.value ? null : "")
+  public isRegistering = ref(false)
 
   override async onServiceInit() {
     const initResult = await Store.init()
@@ -119,6 +126,12 @@ export class KernelInterceptorAgentStore extends Service {
     }
   }
 
+  public async resetAuthKey(): Promise<void> {
+    this.authKey.value = null
+    this.sharedSecretB16.value = null
+    await this.persistStore()
+  }
+
   private mergeSecurity(
     ...settings: (Required<InputDomainSetting>["security"] | undefined)[]
   ): Required<InputDomainSetting>["security"] | undefined {
@@ -156,8 +169,8 @@ export class KernelInterceptorAgentStore extends Service {
   }
 
   public completeRequest(
-    request: Omit<RelayRequest, "proxy" | "security">
-  ): RelayRequest {
+    request: Omit<PluginRequest, "proxy" | "security">
+  ): PluginRequest {
     const host = new URL(request.url).host
     const settings = this.getMergedSettings(host)
     const effective = convertDomainSetting(settings)
@@ -195,7 +208,7 @@ export class KernelInterceptorAgentStore extends Service {
     )
 
     if (response.data.message !== "Registration received and stored") {
-      throw new Error("Registration failed")
+      throw new Error(response.data.message ?? "Registration failed")
     }
 
     return otp
@@ -251,6 +264,7 @@ export class KernelInterceptorAgentStore extends Service {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
           this.authKey.value = null
+          await this.persistStore()
         }
       }
       throw error
@@ -258,7 +272,7 @@ export class KernelInterceptorAgentStore extends Service {
   }
 
   public async encryptRequest(
-    request: RelayRequest,
+    request: PluginRequest,
     reqID: number
   ): Promise<[string, ArrayBuffer]> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -291,7 +305,7 @@ export class KernelInterceptorAgentStore extends Service {
   public async decryptResponse(
     nonceB16: string,
     encryptedResponse: ArrayBuffer
-  ): Promise<RelayResponse> {
+  ): Promise<PluginResponse> {
     const nonce = base16.decode(nonceB16.toUpperCase())
     const sharedSecretKeyBytes = base16.decode(
       this.sharedSecretB16.value!.toUpperCase()

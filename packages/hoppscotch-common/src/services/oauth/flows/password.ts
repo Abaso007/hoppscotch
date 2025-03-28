@@ -76,7 +76,7 @@ const initPasswordOauthFlow = async ({
         client_secret: clientSecret,
       }),
       ...(scopes && {
-        scopes: scopes,
+        scope: scopes,
       }),
     }),
   })
@@ -154,6 +154,7 @@ const handleRedirectForAuthCodeOauthFlow = async (localConfig: string) => {
     id: Date.now(),
     url: decodedLocalConfig.data.tokenEndpoint,
     method: "POST",
+    version: "HTTP/1.1",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json",

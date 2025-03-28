@@ -1,6 +1,6 @@
 import { Service } from "dioc"
 import { markRaw } from "vue"
-import { body } from "@hoppscotch/kernel"
+import { body, relayRequestToNativeAdapter } from "@hoppscotch/kernel"
 import * as E from "fp-ts/Either"
 import { pipe } from "fp-ts/function"
 import axios, { CancelTokenSource } from "axios"
@@ -132,9 +132,24 @@ export class AgentKernelInterceptorService
           .join(";")
       }
 
-      console.log("[AGENT]: effectiveRequest", effectiveRequest)
+      const existingUserAgentHeader = Object.keys(
+        effectiveRequest.headers || {}
+      ).find((header) => header.toLowerCase() === "user-agent")
+
+      // A temporary workaround to add a User-Agent header to the request
+      // This will be removed once the agent is updated to add User-Agent header by default
+      const effectiveRequestWithUserAgent = {
+        ...effectiveRequest,
+        headers: {
+          ...effectiveRequest.headers,
+          "User-Agent": existingUserAgentHeader
+            ? effectiveRequest.headers[existingUserAgentHeader]
+            : "HoppscotchKernel/0.1.0",
+        },
+      }
+
       const [nonceB16, encryptedReq] = await this.store.encryptRequest(
-        effectiveRequest,
+        await relayRequestToNativeAdapter(effectiveRequestWithUserAgent),
         reqID
       )
 

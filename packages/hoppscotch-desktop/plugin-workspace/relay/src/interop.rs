@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bytes::Bytes;
 use http::{Method, StatusCode, Version};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 use time::OffsetDateTime;
@@ -48,7 +49,8 @@ pub enum MediaType {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum FormValue {
-    Text(String),
+    #[serde(rename_all = "camelCase")]
+    Text { value: String },
     #[serde(rename_all = "camelCase")]
     File {
         filename: String,
@@ -57,7 +59,7 @@ pub enum FormValue {
     },
 }
 
-pub type FormData = HashMap<String, Vec<FormValue>>;
+pub type FormData = IndexMap<String, Vec<FormValue>>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "kind", rename_all = "camelCase")]
